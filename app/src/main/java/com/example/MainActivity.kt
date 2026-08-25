@@ -163,7 +163,13 @@ class MainActivity : ComponentActivity() {
                                     orders = uiState.orders,
                                     activeFilter = uiState.activeOrderFilter,
                                     onFilterChange = { viewModel.setOrderFilter(it) },
-                                    onSelectOrder = { viewModel.selectOrderDetails(it) }
+                                    onSelectOrder = { viewModel.selectOrderDetails(it) },
+                                    onRefreshOrders = { viewModel.fetchOrdersFromGateway() },
+                                    onRetryOrder = { orderId -> viewModel.retryOrder(orderId) },
+                                    isFetching = uiState.isFetchingOrders,
+                                    isRetrying = uiState.isRetryingOrder,
+                                    gatewayLatencyMs = uiState.gatewayLatencyMs,
+                                    lastSyncedTime = uiState.lastSyncedTime
                                 )
                             }
 
@@ -241,7 +247,8 @@ class MainActivity : ComponentActivity() {
                 uiState.selectedOrderDetails?.let { order ->
                     OrderDetailsDialog(
                         order = order,
-                        onDismiss = { viewModel.selectOrderDetails(null) }
+                        onDismiss = { viewModel.selectOrderDetails(null) },
+                        onRetry = { viewModel.retryOrder(order.id) }
                     )
                 }
 

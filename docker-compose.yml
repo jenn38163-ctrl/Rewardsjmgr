@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # 1. Primary ACID Relational Store for Double-Entry Financial Ledger
+  postgres:
+    image: postgres:16-alpine
+    container_name: rewards_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-rewards_gateway}
+      POSTGRES_USER: ${DB_USER:-gateway_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-gateway_secure_pass_2026}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./server/db/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-gateway_admin} -d ${DB_NAME:-rewards_gateway}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. In-Memory Cache & Distributed Idempotency Lock Layer
+  redis:
+    image: redis:7-alpine
+    container_name: rewards_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-redis_secure_pass_2026}"
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secure_pass_2026}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 3. Rewards Gateway Backend API Server
+  gateway-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rewards_server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${DB_USER:-gateway_admin}:${DB_PASSWORD:-gateway_secure_pass_2026}@postgres:5432/${DB_NAME:-rewards_gateway}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_pass_2026}@redis:6379
+      ZENDIT_API_KEY: ${ZENDIT_API_KEY}
+      ZENDIT_BASE_URL: ${ZENDIT_BASE_URL:-https://api.zendit.io/v1}
+      GIFTBIT_API_KEY: ${GIFTBIT_API_KEY}
+      GIFTBIT_BASE_URL: ${GIFTBIT_BASE_URL:-https://api.giftbit.com/papi/v1}
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_2026}
+      CIRCUIT_BREAKER_THRESHOLD: 3
+      CIRCUIT_BREAKER_RESET_MS: 15000
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local

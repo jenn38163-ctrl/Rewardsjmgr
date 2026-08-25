@@ -340,6 +340,7 @@ fun ResellerPromoCard(
 fun OrderItemCard(
     order: MarketplaceOrder,
     onClick: () -> Unit,
+    onRetry: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -350,112 +351,236 @@ fun OrderItemCard(
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = DarkSurface),
         shape = RoundedCornerShape(18.dp),
-        border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(DarkSurfaceBorder, DarkSurfaceHighlight)))
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = Brush.linearGradient(
+                if (order.status == GatewayOrderState.FAILED_RETRYABLE) {
+                    listOf(Color(0xFFF59E0B).copy(alpha = 0.5f), DarkSurfaceBorder)
+                } else {
+                    listOf(DarkSurfaceBorder, DarkSurfaceHighlight)
+                }
+            )
+        )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
-            // Type Icon
-            val icon = when {
-                order.title.contains("eSIM", ignoreCase = true) -> Icons.Outlined.SimCard
-                order.title.contains("Recharge", ignoreCase = true) || order.title.contains("Jio", ignoreCase = true) || order.title.contains("Airtel", ignoreCase = true) -> Icons.Outlined.Smartphone
-                else -> Icons.Outlined.CardGiftcard
-            }
-            val iconBg = when {
-                order.title.contains("eSIM", ignoreCase = true) -> Color(0xFF1B284A)
-                order.title.contains("Recharge", ignoreCase = true) || order.title.contains("Jio", ignoreCase = true) || order.title.contains("Airtel", ignoreCase = true) -> Color(0xFF103328)
-                else -> Color(0xFF33230A)
-            }
-            val iconTint = when {
-                order.title.contains("eSIM", ignoreCase = true) -> BlueAccent
-                order.title.contains("Recharge", ignoreCase = true) || order.title.contains("Jio", ignoreCase = true) || order.title.contains("Airtel", ignoreCase = true) -> GreenAccent
-                else -> AmberAccent
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(iconBg),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+                // Type Icon
+                val icon = when {
+                    order.title.contains("eSIM", ignoreCase = true) -> Icons.Outlined.SimCard
+                    order.title.contains("Recharge", ignoreCase = true) || order.title.contains("Jio", ignoreCase = true) || order.title.contains("Airtel", ignoreCase = true) -> Icons.Outlined.Smartphone
+                    else -> Icons.Outlined.CardGiftcard
+                }
+                val iconBg = when {
+                    order.status == GatewayOrderState.FAILED_RETRYABLE -> Color(0xFF3D2706)
+                    order.title.contains("eSIM", ignoreCase = true) -> Color(0xFF1B284A)
+                    order.title.contains("Recharge", ignoreCase = true) || order.title.contains("Jio", ignoreCase = true) || order.title.contains("Airtel", ignoreCase = true) -> Color(0xFF103328)
+                    else -> Color(0xFF33230A)
+                }
+                val iconTint = when {
+                    order.status == GatewayOrderState.FAILED_RETRYABLE -> Color(0xFFF59E0B)
+                    order.title.contains("eSIM", ignoreCase = true) -> BlueAccent
+                    order.title.contains("Recharge", ignoreCase = true) || order.title.contains("Jio", ignoreCase = true) || order.title.contains("Airtel", ignoreCase = true) -> GreenAccent
+                    else -> AmberAccent
+                }
 
-            Spacer(modifier = Modifier.width(14.dp))
-
-            // Info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = order.title,
-                    color = TextPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = if (order.recipient.isNotBlank() && order.recipient.startsWith("+")) {
-                        "${order.orderNumber} · ${order.dateFormatted}\n${order.recipient}"
-                    } else {
-                        "${order.orderNumber} · ${order.dateFormatted}"
-                    },
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Price & Status Badge
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = "₹${order.amountInr}",
-                    color = TextPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(6.dp))
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(100.dp))
-                        .background(order.status.containerColor)
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(iconBg),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (order.status == OrderStatus.COMPLETED) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = order.status.color,
-                                modifier = Modifier.size(12.dp)
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                // Info
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = order.title,
+                        color = TextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = if (order.recipient.isNotBlank() && order.recipient.startsWith("+")) {
+                            "${order.orderNumber} · ${order.dateFormatted}\n${order.recipient}"
+                        } else {
+                            "${order.orderNumber} · ${order.dateFormatted}"
+                        },
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Price & State Indicator Badge
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "₹${order.amountInr}",
+                        color = TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    
+                    // State Machine Indicator Pill
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(order.status.containerColor)
+                            .border(1.dp, order.status.borderColor.copy(alpha = 0.6f), RoundedCornerShape(100.dp))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            when (order.status) {
+                                GatewayOrderState.COMPLETED -> {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Completed",
+                                        tint = order.status.color,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                }
+                                GatewayOrderState.PENDING -> {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Schedule,
+                                        contentDescription = "Pending",
+                                        tint = order.status.color,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                }
+                                GatewayOrderState.PROCESSING -> {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "Processing",
+                                        tint = order.status.color,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                }
+                                GatewayOrderState.FAILED_RETRYABLE -> {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "Retryable",
+                                        tint = order.status.color,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                }
+                                GatewayOrderState.FAILED_TERMINAL -> {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Failed",
+                                        tint = order.status.color,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                }
+                                GatewayOrderState.REFUNDED -> {
+                                    Icon(
+                                        imageVector = Icons.Default.AccountBalanceWallet,
+                                        contentDescription = "Refunded",
+                                        tint = order.status.color,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                }
+                            }
+                            Text(
+                                text = order.status.tag,
+                                color = order.status.color,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.3.sp
                             )
-                            Spacer(modifier = Modifier.width(3.dp))
-                        } else if (order.status == OrderStatus.PROCESSING) {
+                        }
+                    }
+                }
+            }
+
+            // Retryable State Machine Action Panel
+            if (order.status == GatewayOrderState.FAILED_RETRYABLE) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = DarkSurfaceBorder.copy(alpha = 0.6f))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = order.failureReason ?: "Gateway timeout with ${order.provider}",
+                            color = Color(0xFFFBBF24),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = "State: FAILED_RETRYABLE • Attempt ${order.retryCount}/${order.maxRetries}",
+                            color = TextSecondary,
+                            fontSize = 10.sp
+                        )
+                    }
+
+                    if (onRetry != null) {
+                        Button(
+                            onClick = onRetry,
+                            modifier = Modifier
+                                .testTag("btn_retry_order_${order.id}")
+                                .height(32.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = null,
-                                tint = order.status.color,
-                                modifier = Modifier.size(12.dp)
+                                tint = Color(0xFF1F1202),
+                                modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.width(3.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Retry Dispatch",
+                                color = Color(0xFF1F1202),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                        Text(
-                            text = order.status.label,
-                            color = order.status.color,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
                     }
+                }
+            } else if (order.status == GatewayOrderState.PENDING) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "State: PENDING • Awaiting gateway dispatch confirmation",
+                        color = Color(0xFF38BDF8),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }

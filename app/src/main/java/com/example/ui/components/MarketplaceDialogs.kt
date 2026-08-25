@@ -467,7 +467,8 @@ fun TopUpSheetDialog(
 @Composable
 fun OrderDetailsDialog(
     order: MarketplaceOrder,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onRetry: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
 
@@ -508,7 +509,51 @@ fun OrderDetailsDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // State Machine Status Banner
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(order.status.containerColor)
+                        .border(1.dp, order.status.borderColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(order.status.color.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            when (order.status) {
+                                GatewayOrderState.COMPLETED -> Icon(Icons.Default.Check, null, tint = order.status.color, modifier = Modifier.size(18.dp))
+                                GatewayOrderState.PENDING -> Icon(Icons.Outlined.Schedule, null, tint = order.status.color, modifier = Modifier.size(18.dp))
+                                GatewayOrderState.PROCESSING -> Icon(Icons.Default.Refresh, null, tint = order.status.color, modifier = Modifier.size(18.dp))
+                                GatewayOrderState.FAILED_RETRYABLE -> Icon(Icons.Default.Refresh, null, tint = order.status.color, modifier = Modifier.size(18.dp))
+                                else -> Icon(Icons.Default.Close, null, tint = order.status.color, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "State: ${order.status.tag}",
+                                color = order.status.color,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = order.status.subtitle,
+                                color = TextSecondary,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Item info box
                 Box(
@@ -540,13 +585,48 @@ fun OrderDetailsDialog(
                             Text(text = "Amount Paid", color = TextSecondary, fontSize = 12.sp)
                             Text(text = "₹${order.amountInr}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }
+                        if (order.recipient.isNotBlank()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(text = "Recipient", color = TextSecondary, fontSize = 12.sp)
+                                Text(text = order.recipient, color = TextPrimary, fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Voucher Code Box
-                if (order.voucherCode != null) {
+                // State Machine Transition Steps
+                Text(text = "State Lifecycle Audit", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                Spacer(modifier = Modifier.height(6.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val steps = listOf(
+                        "1. Order Created & Validated" to true,
+                        "2. Dispatched to Gateway Router" to (order.status != GatewayOrderState.PENDING),
+                        "3. Provider Execution (${order.provider})" to (order.status == GatewayOrderState.COMPLETED || order.status == GatewayOrderState.FAILED_RETRYABLE || order.status == GatewayOrderState.PROCESSING),
+                        "4. State Transition: ${order.status.tag}" to true
+                    )
+                    steps.forEach { (step, isDone) ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (isDone) Icons.Default.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                                contentDescription = null,
+                                tint = if (isDone) TealAccent else TextMuted,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = step, color = if (isDone) TextPrimary else TextMuted, fontSize = 11.sp)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Voucher Code Box (if Completed)
+                if (order.status == GatewayOrderState.COMPLETED && order.voucherCode != null) {
                     Text(
                         text = if (order.itemType == "eSIM Plan") "eSIM Activation Code (LPA)" else "Voucher / Gift Card Code",
                         color = TextSecondary,
@@ -592,8 +672,8 @@ fun OrderDetailsDialog(
                     }
                 }
 
-                if (order.voucherPin != null && order.voucherPin != "N/A" && order.voucherPin != "ACTIVE") {
-                    Spacer(modifier = Modifier.height(10.dp))
+                if (order.status == GatewayOrderState.COMPLETED && order.voucherPin != null && order.voucherPin != "N/A" && order.voucherPin != "ACTIVE") {
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -615,13 +695,32 @@ fun OrderDetailsDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                if (order.status == GatewayOrderState.FAILED_RETRYABLE && onRetry != null) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Button(
+                        onClick = {
+                            onRetry()
+                            onDismiss()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Refresh, contentDescription = null, tint = Color(0xFF1F1202), modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Retry Gateway Dispatch Now", color = Color(0xFF1F1202), fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
                     onClick = onDismiss,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .height(44.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceElevated),
                     shape = RoundedCornerShape(12.dp)
                 ) {
