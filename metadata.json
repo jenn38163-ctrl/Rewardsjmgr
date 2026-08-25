@@ -1,6 +1,6 @@
 {
   "name": "Rewards Gateway",
-  "description": "Enterprise rewards gateway with corporate token allocation, minting, and split-provider (Zendit/Giftbit) simulation.",
+  "description": "Digital Goods Marketplace powered by Zendit & Giftbit for gift cards, eSIM data packages, and carrier mobile top-ups.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
