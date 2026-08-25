@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rewards JMGR - Admin Web Portal</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        .status { padding: 15px; background: #e3f2fd; border-radius: 4px; color: #0d47a1; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Rewards JMGR - Web Portal</h1>
+        <div class="status" id="status">Initializing Firebase...</div>
+        <p>This is the web client/admin dashboard connected to your production Gateway.</p>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
+        import { getRemoteConfig, onConfigUpdate, fetchAndActivate } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-remote-config.js";
+        
+        // Configuration from your Firebase Console
+        const firebaseConfig = {
+            apiKey: "AIzaSyB1bqtWvGjqZEIrEhC4mBfQKVcnitmQoEI",
+            authDomain: "rewardsjmgr.firebaseapp.com",
+            projectId: "rewardsjmgr",
+            storageBucket: "rewardsjmgr.firebasestorage.app",
+            messagingSenderId: "563316492518",
+            appId: "1:563316492518:web:8d37971c69e291d824d327",
+            measurementId: "G-SPPG52JH1M"
+        };
+
+        try {
+            // Initialize Firebase
+            const app = initializeApp(firebaseConfig);
+            const analytics = getAnalytics(app);
+            
+            // Set up Remote Config
+            const remoteConfig = getRemoteConfig(app);
+            
+            // Set reasonable defaults for the web client
+            remoteConfig.defaultConfig = {
+                'maintenance_mode': false,
+                'welcome_message': 'Welcome to Rewards JMGR Admin'
+            };
+            
+            // Fetch initial configuration
+            fetchAndActivate(remoteConfig).then(() => {
+                console.log("Initial Remote Config loaded");
+            });
+            
+            // Listen for real-time config updates from Firebase Console
+            onConfigUpdate(remoteConfig, (update, error) => {
+                if (error) {
+                    console.error("Error listening for config updates:", error);
+                } else {
+                    console.log("Real-time update received for keys:", update.updatedKeys);
+                    fetchAndActivate(remoteConfig).then(() => {
+                        console.log("Updated config activated.");
+                        // Handle specific keys like 'maintenance_mode' here
+                    });
+                }
+            });
+
+            document.getElementById('status').innerText = "Firebase Web SDK Successfully Initialized! Connected to rewardsjmgr.";
+            document.getElementById('status').style.backgroundColor = "#e8f5e9";
+            document.getElementById('status').style.color = "#1b5e20";
+        } catch (error) {
+            console.error("Firebase initialization error", error);
+            document.getElementById('status').innerText = "Error initializing Firebase. See console.";
+            document.getElementById('status').style.backgroundColor = "#ffebee";
+            document.getElementById('status').style.color = "#b71c1c";
+        }
+    </script>
+</body>
+</html>
