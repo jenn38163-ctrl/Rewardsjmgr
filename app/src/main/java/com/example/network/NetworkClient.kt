@@ -5,19 +5,22 @@ import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import okhttp3.OkHttpClient
 import okhttp3.Interceptor
+import okhttp3.logging.HttpLoggingInterceptor
 
 object NetworkClient {
-    private val authInterceptor = Interceptor { chain ->
-        val requestBuilder = chain.request().newBuilder()
-        val token = SessionManager.getAuthToken()
-        if (token != null) {
-            requestBuilder.addHeader("Authorization", "Bearer $token")
+    private val authInterceptor = AuthInterceptor()
+
+    private val loggingInterceptor = HttpLoggingInterceptor().apply {
+        level = if (BuildConfig.DEBUG) {
+            HttpLoggingInterceptor.Level.BODY
+        } else {
+            HttpLoggingInterceptor.Level.NONE
         }
-        chain.proceed(requestBuilder.build())
     }
 
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor(authInterceptor)
+        .addInterceptor(loggingInterceptor)
         .build()
 
     val apiService: RewardsApiService by lazy {
