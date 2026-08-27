@@ -7,18 +7,29 @@ import { eq, and } from 'drizzle-orm';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 
-const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET || 'super_secret_ledger_key_2026_99';
+const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET;
+const isProduction = process.env.NODE_ENV === 'production';
+
+function getDerivedKey(): Buffer {
+  const secret = ENCRYPTION_SECRET || (!isProduction ? 'dev_sandbox_secret_key_2026_ledger_test' : '');
+  if (!secret) {
+    throw new InternalServerErrorException('ENCRYPTION_SECRET is mandatory in production environment.');
+  }
+  return crypto.scryptSync(secret, 'rewards-gateway-salt-2026', 32);
+}
 
 export function encryptValue(text: string): string {
   if (!text) return text;
   try {
-    const iv = crypto.randomBytes(16);
-    const key = crypto.scryptSync(ENCRYPTION_SECRET, 'salt', 32);
-    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    const key = getDerivedKey();
+    const iv = crypto.randomBytes(12); // Standard 96-bit IV for AES-GCM
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
     let encrypted = cipher.update(text, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    return `${iv.toString('hex')}:${encrypted}`;
+    const authTag = cipher.getAuthTag();
+    return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
   } catch (e) {
+    if (isProduction) throw e;
     return text;
   }
 }
@@ -27,16 +38,22 @@ export function decryptValue(encryptedText: string): string {
   if (!encryptedText) return encryptedText;
   try {
     const parts = encryptedText.split(':');
-    if (parts.length !== 2) return encryptedText;
+    if (parts.length !== 3) {
+      // Not in GCM format (or unencrypted legacy)
+      return encryptedText;
+    }
     const iv = Buffer.from(parts[0], 'hex');
-    const encrypted = parts[1];
-    const key = crypto.scryptSync(ENCRYPTION_SECRET, 'salt', 32);
-    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+    const authTag = Buffer.from(parts[1], 'hex');
+    const encrypted = parts[2];
+    const key = getDerivedKey();
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
   } catch (e) {
-    return encryptedText;
+    // If tampered with or decryption fails, do not emit plaintext or sensitive error details
+    return '[ENCRYPTED_DATA_TAMPERED_OR_CORRUPT]';
   }
 }
 

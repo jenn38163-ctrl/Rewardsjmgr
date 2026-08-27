@@ -7,6 +7,8 @@ import { ProviderModule } from './provider/provider.module';
 import { OrderModule } from './order/order.module';
 import { WalletModule } from './wallet/wallet.module';
 import { WebhookModule } from './webhook/webhook.module';
+import { HealthModule } from './health/health.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { WebhookModule } from './webhook/webhook.module';
       envFilePath: ['.env', '.env.example'],
     }),
     DbModule,
+    RedisModule,
+    HealthModule,
     AuthModule,
     LedgerModule,
     ProviderModule,
@@ -24,3 +28,4 @@ import { WebhookModule } from './webhook/webhook.module';
   ],
 })
 export class AppModule {}
+
