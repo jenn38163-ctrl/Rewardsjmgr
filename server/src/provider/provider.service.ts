@@ -40,4 +40,12 @@ export class ProviderService {
       }
     );
   }
+
+  async getBalance(provider: 'ZENDIT' | 'GIFTBIT'): Promise<{ balance: number; currency: string }> {
+    const adapter = provider === 'GIFTBIT' ? this.giftbitAdapter : this.zenditAdapter;
+    if (adapter.getBalance) {
+      return await adapter.getBalance();
+    }
+    throw new Error(`getBalance not supported for provider ${provider}`);
+  }
 }

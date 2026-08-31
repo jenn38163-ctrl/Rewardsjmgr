@@ -14,4 +14,6 @@ export interface ProviderAdapter {
     amountInr: number,
     itemType: 'GIFT_CARD' | 'ESIM_PLAN' | 'MOBILE_TOPUP'
   ): Promise<FulfillmentResult>;
+
+  getBalance?(): Promise<{ balance: number; currency: string }>;
 }
