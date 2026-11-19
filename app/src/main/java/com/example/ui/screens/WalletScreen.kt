@@ -28,6 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.TransactionRecord
+import com.example.ui.components.GooglePayButton
+import com.example.ui.components.GoogleWalletAddPassButton
 import com.example.ui.components.TransactionRowItem
 import com.example.ui.theme.*
 
@@ -230,6 +232,38 @@ fun WalletScreen(
                         fontWeight = FontWeight.Medium
                     )
                 }
+            }
+        }
+
+        // Section: Google Pay & Google Wallet
+        item {
+            Text(
+                text = "Google Pay & Google Wallet",
+                color = TextPrimary,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                GooglePayButton(
+                    amount = "10.00",
+                    currencyCode = "USD",
+                    onPaymentSuccess = { token ->
+                        Toast.makeText(context, "Google Pay Success! Token received.", Toast.LENGTH_LONG).show()
+                    },
+                    onPaymentFailed = { err ->
+                        Toast.makeText(context, "Google Pay: $err", Toast.LENGTH_SHORT).show()
+                    }
+                )
+
+                GoogleWalletAddPassButton(
+                    passName = "Rewards Membership Pass",
+                    onPassAdded = {
+                        Toast.makeText(context, "Pass added to Google Wallet!", Toast.LENGTH_SHORT).show()
+                    }
+                )
             }
         }
 

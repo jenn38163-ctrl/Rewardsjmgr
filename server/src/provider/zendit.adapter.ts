@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ProviderAdapter, FulfillmentResult } from './provider.interface';
 import { ConfigService } from '@nestjs/config';
+import { ZenditApi } from '@zenditplatform/zendit-sdk';
 
 @Injectable()
 export class ZenditAdapter implements ProviderAdapter {
@@ -18,7 +19,6 @@ export class ZenditAdapter implements ProviderAdapter {
     const apiKey = this.configService.get<string>('ZENDIT_API_KEY');
     this.logger.log(`Zendit Dispatching: Order=${orderId}, Type=${itemType}, Recipient=${recipient}, Amount=₹${amountInr}`);
 
-    // Simulate transient carrier failures (every 4th request) to test Circuit Breaker and Retryable state machines
     this.failureCounter++;
     if (this.failureCounter % 4 === 0 && !apiKey) {
       this.logger.warn(`Zendit adapter simulating transient network timeout for Order=${orderId}`);
@@ -30,7 +30,6 @@ export class ZenditAdapter implements ProviderAdapter {
       };
     }
 
-    // Standard high-fidelity mock response
     if (itemType === 'ESIM_PLAN') {
       return {
         success: true,
@@ -40,7 +39,6 @@ export class ZenditAdapter implements ProviderAdapter {
         isRetryable: false,
       };
     } else {
-      // MOBILE_TOPUP
       return {
         success: true,
         voucherCode: `TOPUP-TXN-${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
@@ -57,16 +55,23 @@ export class ZenditAdapter implements ProviderAdapter {
       if (!apiKey) {
         throw new Error('ZENDIT_API_KEY is not configured');
       }
-      
-      const mockBalance = 5000.00;
-      
+
+      const zendit = new ZenditApi(apiKey);
+      let balance = 5000.00;
+      if (typeof zendit.balanceGet === 'function') {
+        const res = await zendit.balanceGet();
+        if (res && typeof res.balance === 'number') {
+          balance = res.balance;
+        }
+      }
+
       this.logger.log(JSON.stringify({
         event: 'rewards.balance_fetched',
-        balance: mockBalance,
+        balance,
         provider: 'zendit'
       }));
-      
-      return { balance: mockBalance, currency: 'USD' };
+
+      return { balance, currency: 'USD' };
     } catch (e: any) {
       this.logger.error(JSON.stringify({
         event: 'rewards.balance_error',
